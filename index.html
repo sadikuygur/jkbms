@@ -323,8 +323,9 @@
     let foundDevices = {};
     let selectedDevice = null;
     let bmsCharacteristic = null;
+    let rxBuffer = new Uint8Array();
 
-    // JK BMS BLE Servis ve Karakteristik UUID'leri
+    // JK BMS BLE Servis UUID'leri
     const JK_SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
     const JK_CHAR_UUID    = '0000ffe1-0000-1000-8000-00805f9b34fb';
 
@@ -333,7 +334,7 @@
         const deviceSelect = document.getElementById('deviceSelect');
 
         if (!navigator.bluetooth) {
-            alert("Bluetooth bu tarayıcıda desteklenmiyor.");
+            alert("Bluetooth desteklenmiyor.");
             return;
         }
 
@@ -385,14 +386,13 @@
             statusElem.innerText = "Bağlanıyor...";
             const server = await selectedDevice.gatt.connect();
             
-            // Servis ve Karakteristik Dinleme
             const service = await server.getPrimaryService(JK_SERVICE_UUID);
             bmsCharacteristic = await service.getCharacteristic(JK_CHAR_UUID);
             
             await bmsCharacteristic.startNotifications();
             bmsCharacteristic.addEventListener('characteristicvaluechanged', handleBMSData);
 
-            statusElem.innerText = "Bağlandı: " + (selectedDevice.name || "BMS");
+            statusElem.innerText = "Veri Alınıyor: " + (selectedDevice.name || "BMS");
             statusElem.style.backgroundColor = "#00e676";
             statusElem.style.color = "#000000";
 
@@ -401,7 +401,8 @@
 
             selectedDevice.addEventListener('gattserverdisconnected', onDisconnected);
 
-            // Veri İsteği Gönder (JK BMS Okuma Sorgusu)
+            // Veri Sorgulama Döngüsü (Her 2 saniyede bir BMS'e okuma isteği gönderir)
+            setInterval(requestBMSData, 2000);
             requestBMSData();
 
         } catch (error) {
@@ -410,28 +411,60 @@
         }
     }
 
-    // JK BMS Veri Sorgu Komutu Gönderme
+    // JK BMS Veri Talep Komutu (Read Request Frame)
     async function requestBMSData() {
-        if (bmsCharacteristic) {
-            // JK BMS veri talep paketi (Header 0xDB, 0xDB...)
-            const readFrame = new Uint8Array([0xAA, 0x55, 0x90, 0xEB, 0x96, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x9B]);
+        if (bmsCharacteristic && selectedDevice.gatt.connected) {
+            const readFrame = new Uint8Array([
+                0xAA, 0x55, 0x90, 0xEB, 0x96, 0x00, 0x00, 0x00, 
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+                0x00, 0x00, 0x00, 0x9B
+            ]);
             try {
                 await bmsCharacteristic.writeValue(readFrame);
-            } catch(e) { console.log(e); }
+            } catch(e) { console.log("Sorgu Hatası:", e); }
         }
     }
 
-    // BMS'ten Gelen Gelen Veri Paketini Çözme
+    // BMS'ten Gelen Paketleri Birleştirme ve Çözme
     function handleBMSData(event) {
-        const value = event.target.value;
-        const data = new DataView(value.buffer);
+        const chunk = new Uint8Array(event.target.value.buffer);
         
-        // Örnek Canlı Veri Ayrıştırma (BMS Paket Tipine Göre)
-        if (value.byteLength > 10) {
-            // Test/Canlı Veri Güncellemesi
-            let soc = data.getUint8(4);
-            if(soc <= 100) document.getElementById('socValue').innerText = "%" + soc;
+        // Gelen parça paketleri birleştir
+        let newBuffer = new Uint8Array(rxBuffer.length + chunk.length);
+        newBuffer.set(rxBuffer);
+        newBuffer.set(chunk, rxBuffer.length);
+        rxBuffer = newBuffer;
+
+        // Tam JK BMS Paketi kontrolü (Başlık: 0x55 0xAA 0xEB 0x90)
+        if (rxBuffer.length >= 300) {
+            parseJKFrame(rxBuffer);
+            rxBuffer = new Uint8Array(); // Tamponu temizle
         }
+    }
+
+    // JK BMS Protokolü Ayrıştırma
+    function parseJKFrame(data) {
+        try {
+            // Örnek Temel Veri Ayıklama
+            let soc = data[141]; 
+            if (soc <= 100) document.getElementById('socValue').innerText = "%" + soc;
+
+            // Anlık Akım (Amper)
+            let currentRaw = (data[126] << 8) | data[127];
+            let current = (currentRaw > 32768 ? (32768 - currentRaw) : currentRaw) / 100;
+            document.getElementById('current').innerText = current.toFixed(2) + " A";
+
+            // Hücre Voltajları Parse İşlemi
+            let cellIndex = 1;
+            for (let i = 6; i < 60; i += 3) {
+                if (data[i] === cellIndex) {
+                    let volt = ((data[i+1] << 8) | data[i+2]) / 1000;
+                    let elem = document.getElementById(`cell_${cellIndex}`);
+                    if (elem) elem.innerText = volt.toFixed(3);
+                    cellIndex++;
+                }
+            }
+        } catch(e) { console.log("Ayrıştırma hatası:", e); }
     }
 
     function disconnectDevice() {
@@ -454,7 +487,7 @@
     }
 
     function sendCommand(action, status) {
-        console.log(`Komut Gönderildi: ${action} -> ${status ? 'AÇIK' : 'KAPALI'}`);
+        console.log(`Komut: ${action} -> ${status}`);
     }
 </script>
 
