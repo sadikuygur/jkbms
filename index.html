@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JK BMS Kontrol Paneli</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --accent-color: #00e676;
+            --text-color: #ffffff;
+            --text-secondary: #b0bec5;
+            --border-color: #333333;
+            --danger-color: #ff5252;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 15px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border-color);
+        }
+
+        h2 {
+            font-size: 1.1rem;
+            color: var(--accent-color);
+            margin-top: 0;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+
+        /* Cihaz Seçim Paneli Stilleri */
+        .device-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .select-box {
+            width: 100%;
+            padding: 12px;
+            background-color: #2a2a2a;
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            outline: none;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            font-size: 0.95rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn:active {
+            opacity: 0.8;
+        }
+
+        .btn-scan {
+            background-color: #2196f3;
+            color: #ffffff;
+        }
+
+        .btn-connect {
+            background-color: var(--accent-color);
+            color: #000000;
+        }
+
+        .btn-disconnect {
+            background-color: var(--danger-color);
+            color: #ffffff;
+            display: none; /* Bağlanınca görünecek */
+        }
+
+        /* Status Ring Section */
+        .soc-container {
+            text-align: center;
+            padding: 10px 0 20px 0;
+        }
+
+        .soc-value {
+            font-size: 3.5rem;
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 20px;
+            background-color: #2a2a2a;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-top: 5px;
+        }
+
+        /* Grid Layouts */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .grid-4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+
+        .data-box {
+            background-color: #262626;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .data-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .data-value {
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        /* Switch/Toggle Styling */
+        .control-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        .control-item:last-child {
+            border-bottom: none;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #424242;
+            transition: .3s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--accent-color);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        /* Cell Grid */
+        .cell-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            font-size: 0.8rem;
+        }
+
+        .cell-item {
+            background: #252525;
+            padding: 6px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .cell-num { color: var(--text-secondary); }
+        .cell-volt { font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <div class="card">
+        <h2>Cihaz Seçimi ve Bağlantı</h2>
+        <div class="device-panel">
+            <select id="deviceSelect" class="select-box">
+                <option value="">-- Henüz Cihaz Seçilmedi --</option>
+            </select>
+            
+            <div class="btn-group">
+                <button class="btn btn-scan" onclick="scanDevices()">Cihaz Ara</button>
+                <button class="btn btn-connect" id="btnConnect" onclick="connectSelectedDevice()">Bağlan</button>
+                <button class="btn btn-disconnect" id="btnDisconnect" onclick="disconnectDevice()">Bağlantıyı Kes</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="soc-container">
+            <div class="soc-value" id="socValue">%0</div>
+            <div class="status-badge" id="bmsStatus">Bağlantı Yok</div>
+        </div>
+
+        <div class="grid-4">
+            <div class="data-box">
+                <div class="data-label">Yüksek Hücre</div>
+                <div class="data-value" id="highCell">0.000 V</div>
+            </div>
+            <div class="data-box">
+                <div class="data-label">Düşük Hücre</div>
+                <div class="data-value" id="lowCell">0.000 V</div>
+            </div>
+            <div class="data-box">
+                <div class="data-label">Fark (Delta)</div>
+                <div class="data-value" id="voltDiff">0.000 V</div>
+            </div>
+            <div class="data-box">
+                <div class="data-label">Balans Akımı</div>
+                <div class="data-value" id="balCurr">0.000 A</div>
+            </div>
+        </div>
+
+        <div class="grid-2" style="margin-top: 10px;">
+            <div class="data-box">
+                <div class="data-label">Anlık Akım</div>
+                <div class="data-value" id="current">0.00 A</div>
+            </div>
+            <div class="data-box">
+                <div class="data-label">Anlık Güç</div>
+                <div class="data-value" id="power">0.0 W</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Kontrol ve Sistem</h2>
+        
+        <div class="control-item">
+            <span>Şarj İzni (Chg)</span>
+            <label class="switch">
+                <input type="checkbox" id="btnCharge" onchange="sendCommand('CHARGE', this.checked)">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="control-item">
+            <span>Deşarj İzni (Dsg)</span>
+            <label class="switch">
+                <input type="checkbox" id="btnDischarge" onchange="sendCommand('DISCHARGE', this.checked)">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="control-item">
+            <span>Aktif Dengeleyici (Balancer)</span>
+            <label class="switch">
+                <input type="checkbox" id="btnBalancer" onchange="sendCommand('BALANCER', this.checked)">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="control-item">
+            <span>Hücre Tipi</span>
+            <span style="font-weight: bold; color: var(--accent-color);">LiFePO4 (LFP)</span>
+        </div>
+
+        <div class="control-item">
+            <span>Hücre Sayısı (Cell Count)</span>
+            <span id="cellCount">0</span>
+        </div>
+
+        <div class="control-item">
+            <span>Kapasite</span>
+            <span id="capacity">0 Ah</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Canlı Sistem Değerleri</h2>
+        <div class="grid-2">
+            <div class="data-box">
+                <div class="data-label">Ortalama Hücre</div>
+                <div class="data-value" id="avgCell">0.000 V</div>
+            </div>
+            <div class="data-box">
+                <div class="data-label">BMS Kart Sıcaklığı</div>
+                <div class="data-value" id="cmosTemp">0.0 °C</div>
+            </div>
+            <div class="data-box" style="margin-top: 8px;">
+                <div class="data-label">Sensör 1 Sıcaklık</div>
+                <div class="data-value" id="temp1">0.0 °C</div>
+            </div>
+            <div class="data-box" style="margin-top: 8px;">
+                <div class="data-label">Sensör 2 Sıcaklık</div>
+                <div class="data-value" id="temp2">0.0 °C</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Hücre Voltajları (V)</h2>
+        <div class="cell-grid" id="cellContainer"></div>
+    </div>
+
+</div>
+
+<script>
+    // 24 Hücre arayüzünü dinamik oluşturma
+    const cellContainer = document.getElementById('cellContainer');
+    for (let i = 1; i <= 24; i++) {
+        const cellId = i < 10 ? '0' + i : i;
+        cellContainer.innerHTML += `
+            <div class="cell-item">
+                <span class="cell-num">${cellId}</span>
+                <span class="cell-volt" id="cell_${i}">0.000</span>
+            </div>
+        `;
+    }
+
+    let foundDevices = {};
+    let selectedDevice = null;
+
+    // Cihaz Tarama Mantığı
+    async function scanDevices() {
+        const statusElem = document.getElementById('bmsStatus');
+        const deviceSelect = document.getElementById('deviceSelect');
+
+        if (!navigator.bluetooth) {
+            alert("Bluetooth bu cihazda veya WebView tarayıcısında desteklenmiyor.");
+            statusElem.innerText = "Bluetooth Desteklenmiyor";
+            return;
+        }
+
+        try {
+            statusElem.innerText = "Taranıyor...";
+            const device = await navigator.bluetooth.requestDevice({
+                acceptAllDevices: true,
+                optionalServices: [
+                    '0000ffe0-0000-1000-8000-00805f9b34fb',
+                    '0000ffe1-0000-1000-8000-00805f9b34fb'
+                ]
+            });
+
+            // Bulunan cihazı hafızaya al ve listeye ekle
+            foundDevices[device.id] = device;
+            
+            // Seçenek zaten yoksa ekle
+            let exists = false;
+            for (let opt of deviceSelect.options) {
+                if (opt.value === device.id) exists = true;
+            }
+
+            if (!exists) {
+                const option = document.createElement('option');
+                option.value = device.id;
+                option.text = device.name || "İsimsiz BMS Cihazı (" + device.id.substring(0,5) + ")";
+                deviceSelect.add(option);
+            }
+
+            deviceSelect.value = device.id;
+            statusElem.innerText = "Cihaz Seçildi, 'Bağlan'a Basın";
+
+        } catch (error) {
+            console.error(error);
+            statusElem.innerText = "Arama İptal Edildi";
+        }
+    }
+
+    // Seçilen Cihaza Bağlanma
+    async function connectSelectedDevice() {
+        const deviceSelect = document.getElementById('deviceSelect');
+        const statusElem = document.getElementById('bmsStatus');
+        const btnConnect = document.getElementById('btnConnect');
+        const btnDisconnect = document.getElementById('btnDisconnect');
+
+        const deviceId = deviceSelect.value;
+        if (!deviceId || !foundDevices[deviceId]) {
+            alert("Lütfen önce 'Cihaz Ara' butonuna basarak bir cihaz seçin.");
+            return;
+        }
+
+        selectedDevice = foundDevices[deviceId];
+
+        try {
+            statusElem.innerText = "Bağlanıyor...";
+            const server = await selectedDevice.gatt.connect();
+
+            statusElem.innerText = "Bağlandı: " + (selectedDevice.name || "BMS");
+            statusElem.style.backgroundColor = "#00e676";
+            statusElem.style.color = "#000000";
+
+            btnConnect.style.display = "none";
+            btnDisconnect.style.display = "block";
+
+            selectedDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
+        } catch (error) {
+            console.error(error);
+            statusElem.innerText = "Bağlantı Başarısız";
+        }
+    }
+
+    // Bağlantıyı Kesme
+    function disconnectDevice() {
+        if (selectedDevice && selectedDevice.gatt.connected) {
+            selectedDevice.gatt.disconnect();
+        }
+    }
+
+    function onDisconnected() {
+        const statusElem = document.getElementById('bmsStatus');
+        const btnConnect = document.getElementById('btnConnect');
+        const btnDisconnect = document.getElementById('btnDisconnect');
+
+        statusElem.innerText = "Bağlantı Kesildi";
+        statusElem.style.backgroundColor = "#2a2a2a";
+        statusElem.style.color = "#b0bec5";
+
+        btnConnect.style.display = "block";
+        btnDisconnect.style.display = "none";
+    }
+
+    // Komut Gönderme (Şarj/Deşarj/Dengeleyici)
+    function sendCommand(action, status) {
+        console.log(`Komut Gönderildi: ${action} -> ${status ? 'AÇIK' : 'KAPALI'}`);
+    }
+
+    // Bluetooth Veri Güncelleme
+    function updateBMSData(data) {
+        if(data.soc !== undefined) document.getElementById('socValue').innerText = "%" + data.soc;
+        if(data.current !== undefined) document.getElementById('current').innerText = data.current + " A";
+        if(data.power !== undefined) document.getElementById('power').innerText = data.power + " W";
+        if(data.highCell !== undefined) document.getElementById('highCell').innerText = data.highCell + " V";
+        if(data.lowCell !== undefined) document.getElementById('lowCell').innerText = data.lowCell + " V";
+        if(data.voltDiff !== undefined) document.getElementById('voltDiff').innerText = data.voltDiff + " V";
+        
+        if(data.cells) {
+            data.cells.forEach((volt, index) => {
+                let elem = document.getElementById(`cell_${index + 1}`);
+                if(elem) elem.innerText = volt.toFixed(3);
+            });
+        }
+    }
+</script>
+
+</body>
+</html>
+
