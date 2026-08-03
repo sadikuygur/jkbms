@@ -44,7 +44,6 @@
             padding-bottom: 8px;
         }
 
-        /* Cihaz Seçim Paneli Stilleri */
         .device-panel {
             display: flex;
             flex-direction: column;
@@ -78,27 +77,11 @@
             transition: opacity 0.2s;
         }
 
-        .btn:active {
-            opacity: 0.8;
-        }
+        .btn:active { opacity: 0.8; }
+        .btn-scan { background-color: #2196f3; color: #ffffff; }
+        .btn-connect { background-color: var(--accent-color); color: #000000; }
+        .btn-disconnect { background-color: var(--danger-color); color: #ffffff; display: none; }
 
-        .btn-scan {
-            background-color: #2196f3;
-            color: #ffffff;
-        }
-
-        .btn-connect {
-            background-color: var(--accent-color);
-            color: #000000;
-        }
-
-        .btn-disconnect {
-            background-color: var(--danger-color);
-            color: #ffffff;
-            display: none; /* Bağlanınca görünecek */
-        }
-
-        /* Status Ring Section */
         .soc-container {
             text-align: center;
             padding: 10px 0 20px 0;
@@ -120,18 +103,8 @@
             margin-top: 5px;
         }
 
-        /* Grid Layouts */
-        .grid-2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-
-        .grid-4 {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-        }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 
         .data-box {
             background-color: #262626;
@@ -140,18 +113,9 @@
             text-align: center;
         }
 
-        .data-label {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            margin-bottom: 4px;
-        }
+        .data-label { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 4px; }
+        .data-value { font-size: 1.1rem; font-weight: bold; }
 
-        .data-value {
-            font-size: 1.1rem;
-            font-weight: bold;
-        }
-
-        /* Switch/Toggle Styling */
         .control-item {
             display: flex;
             justify-content: space-between;
@@ -159,10 +123,7 @@
             padding: 10px 0;
             border-bottom: 1px solid #2a2a2a;
         }
-
-        .control-item:last-child {
-            border-bottom: none;
-        }
+        .control-item:last-child { border-bottom: none; }
 
         .switch {
             position: relative;
@@ -171,11 +132,7 @@
             height: 24px;
         }
 
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
+        .switch input { opacity: 0; width: 0; height: 0; }
 
         .slider {
             position: absolute;
@@ -189,24 +146,16 @@
         .slider:before {
             position: absolute;
             content: "";
-            height: 18px;
-            width: 18px;
-            left: 3px;
-            bottom: 3px;
+            height: 18px; width: 18px;
+            left: 3px; bottom: 3px;
             background-color: white;
             transition: .3s;
             border-radius: 50%;
         }
 
-        input:checked + .slider {
-            background-color: var(--accent-color);
-        }
+        input:checked + .slider { background-color: var(--accent-color); }
+        input:checked + .slider:before { transform: translateX(20px); }
 
-        input:checked + .slider:before {
-            transform: translateX(20px);
-        }
-
-        /* Cell Grid */
         .cell-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -230,6 +179,7 @@
 
 <div class="container">
 
+    <!-- CİHAZ SEÇİMİ VE BAĞLANTI PANELİ -->
     <div class="card">
         <h2>Cihaz Seçimi ve Bağlantı</h2>
         <div class="device-panel">
@@ -245,6 +195,7 @@
         </div>
     </div>
 
+    <!-- 1. ŞARJ / DEŞARJ / DURUM ÖZETİ -->
     <div class="card">
         <div class="soc-container">
             <div class="soc-value" id="socValue">%0</div>
@@ -282,6 +233,7 @@
         </div>
     </div>
 
+    <!-- 2. KONTROLLER & TEMEL PARAMETRELER -->
     <div class="card">
         <h2>Kontrol ve Sistem</h2>
         
@@ -325,6 +277,7 @@
         </div>
     </div>
 
+    <!-- 3. DETAYLI VERİLER & SICAKLIK -->
     <div class="card">
         <h2>Canlı Sistem Değerleri</h2>
         <div class="grid-2">
@@ -347,6 +300,7 @@
         </div>
     </div>
 
+    <!-- 4. HÜCRE VOLTAJLARI (1-24) -->
     <div class="card">
         <h2>Hücre Voltajları (V)</h2>
         <div class="cell-grid" id="cellContainer"></div>
@@ -355,7 +309,6 @@
 </div>
 
 <script>
-    // 24 Hücre arayüzünü dinamik oluşturma
     const cellContainer = document.getElementById('cellContainer');
     for (let i = 1; i <= 24; i++) {
         const cellId = i < 10 ? '0' + i : i;
@@ -369,15 +322,18 @@
 
     let foundDevices = {};
     let selectedDevice = null;
+    let bmsCharacteristic = null;
 
-    // Cihaz Tarama Mantığı
+    // JK BMS BLE Servis ve Karakteristik UUID'leri
+    const JK_SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
+    const JK_CHAR_UUID    = '0000ffe1-0000-1000-8000-00805f9b34fb';
+
     async function scanDevices() {
         const statusElem = document.getElementById('bmsStatus');
         const deviceSelect = document.getElementById('deviceSelect');
 
         if (!navigator.bluetooth) {
-            alert("Bluetooth bu cihazda veya WebView tarayıcısında desteklenmiyor.");
-            statusElem.innerText = "Bluetooth Desteklenmiyor";
+            alert("Bluetooth bu tarayıcıda desteklenmiyor.");
             return;
         }
 
@@ -385,16 +341,11 @@
             statusElem.innerText = "Taranıyor...";
             const device = await navigator.bluetooth.requestDevice({
                 acceptAllDevices: true,
-                optionalServices: [
-                    '0000ffe0-0000-1000-8000-00805f9b34fb',
-                    '0000ffe1-0000-1000-8000-00805f9b34fb'
-                ]
+                optionalServices: [JK_SERVICE_UUID]
             });
 
-            // Bulunan cihazı hafızaya al ve listeye ekle
             foundDevices[device.id] = device;
             
-            // Seçenek zaten yoksa ekle
             let exists = false;
             for (let opt of deviceSelect.options) {
                 if (opt.value === device.id) exists = true;
@@ -403,7 +354,7 @@
             if (!exists) {
                 const option = document.createElement('option');
                 option.value = device.id;
-                option.text = device.name || "İsimsiz BMS Cihazı (" + device.id.substring(0,5) + ")";
+                option.text = device.name || "BMS Cihazı (" + device.id.substring(0,5) + ")";
                 deviceSelect.add(option);
             }
 
@@ -416,7 +367,6 @@
         }
     }
 
-    // Seçilen Cihaza Bağlanma
     async function connectSelectedDevice() {
         const deviceSelect = document.getElementById('deviceSelect');
         const statusElem = document.getElementById('bmsStatus');
@@ -425,7 +375,7 @@
 
         const deviceId = deviceSelect.value;
         if (!deviceId || !foundDevices[deviceId]) {
-            alert("Lütfen önce 'Cihaz Ara' butonuna basarak bir cihaz seçin.");
+            alert("Lütfen önce cihaz seçin.");
             return;
         }
 
@@ -434,6 +384,13 @@
         try {
             statusElem.innerText = "Bağlanıyor...";
             const server = await selectedDevice.gatt.connect();
+            
+            // Servis ve Karakteristik Dinleme
+            const service = await server.getPrimaryService(JK_SERVICE_UUID);
+            bmsCharacteristic = await service.getCharacteristic(JK_CHAR_UUID);
+            
+            await bmsCharacteristic.startNotifications();
+            bmsCharacteristic.addEventListener('characteristicvaluechanged', handleBMSData);
 
             statusElem.innerText = "Bağlandı: " + (selectedDevice.name || "BMS");
             statusElem.style.backgroundColor = "#00e676";
@@ -444,13 +401,39 @@
 
             selectedDevice.addEventListener('gattserverdisconnected', onDisconnected);
 
+            // Veri İsteği Gönder (JK BMS Okuma Sorgusu)
+            requestBMSData();
+
         } catch (error) {
             console.error(error);
             statusElem.innerText = "Bağlantı Başarısız";
         }
     }
 
-    // Bağlantıyı Kesme
+    // JK BMS Veri Sorgu Komutu Gönderme
+    async function requestBMSData() {
+        if (bmsCharacteristic) {
+            // JK BMS veri talep paketi (Header 0xDB, 0xDB...)
+            const readFrame = new Uint8Array([0xAA, 0x55, 0x90, 0xEB, 0x96, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x9B]);
+            try {
+                await bmsCharacteristic.writeValue(readFrame);
+            } catch(e) { console.log(e); }
+        }
+    }
+
+    // BMS'ten Gelen Gelen Veri Paketini Çözme
+    function handleBMSData(event) {
+        const value = event.target.value;
+        const data = new DataView(value.buffer);
+        
+        // Örnek Canlı Veri Ayrıştırma (BMS Paket Tipine Göre)
+        if (value.byteLength > 10) {
+            // Test/Canlı Veri Güncellemesi
+            let soc = data.getUint8(4);
+            if(soc <= 100) document.getElementById('socValue').innerText = "%" + soc;
+        }
+    }
+
     function disconnectDevice() {
         if (selectedDevice && selectedDevice.gatt.connected) {
             selectedDevice.gatt.disconnect();
@@ -470,29 +453,10 @@
         btnDisconnect.style.display = "none";
     }
 
-    // Komut Gönderme (Şarj/Deşarj/Dengeleyici)
     function sendCommand(action, status) {
         console.log(`Komut Gönderildi: ${action} -> ${status ? 'AÇIK' : 'KAPALI'}`);
-    }
-
-    // Bluetooth Veri Güncelleme
-    function updateBMSData(data) {
-        if(data.soc !== undefined) document.getElementById('socValue').innerText = "%" + data.soc;
-        if(data.current !== undefined) document.getElementById('current').innerText = data.current + " A";
-        if(data.power !== undefined) document.getElementById('power').innerText = data.power + " W";
-        if(data.highCell !== undefined) document.getElementById('highCell').innerText = data.highCell + " V";
-        if(data.lowCell !== undefined) document.getElementById('lowCell').innerText = data.lowCell + " V";
-        if(data.voltDiff !== undefined) document.getElementById('voltDiff').innerText = data.voltDiff + " V";
-        
-        if(data.cells) {
-            data.cells.forEach((volt, index) => {
-                let elem = document.getElementById(`cell_${index + 1}`);
-                if(elem) elem.innerText = volt.toFixed(3);
-            });
-        }
     }
 </script>
 
 </body>
 </html>
-
